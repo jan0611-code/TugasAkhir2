@@ -1,5 +1,6 @@
-streamlit>=1.20
-tensorflow==2.11.0
+streamlit>=1.25
+tensorflow==2.13.1
 opencv-python-headless
 numpy
 pillow
+requests
