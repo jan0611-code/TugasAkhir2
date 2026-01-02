@@ -35,34 +35,25 @@ IMG_SIZE = 224
 def load_model():
     if not os.path.exists(MODEL_PATH):
         with st.spinner("Downloading model (first run only)..."):
-            # Use requests for reliable download with headers
             try:
+                # Use requests for reliable download
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 }
                 response = requests.get(MODEL_URL, headers=headers, stream=True)
                 response.raise_for_status()  # Check for HTTP errors
                 
-                total_size = int(response.headers.get('content-length', 0))
-                
+                # Write the file
                 with open(MODEL_PATH, 'wb') as f:
-                    if total_size == 0:  # No content length header
-                        f.write(response.content)
-                    else:
-                        downloaded = 0
-                        progress_bar = st.progress(0)
-                        for chunk in response.iter_content(chunk_size=8192):
-                            if chunk:
-                                f.write(chunk)
-                                downloaded += len(chunk)
-                                progress_bar.progress(min(downloaded / total_size, 1.0))
-                        progress_bar.empty()
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
                 
                 st.success("Model downloaded successfully!")
                 
             except Exception as e:
                 st.error(f"Failed to download model: {e}")
-                st.info("Please check if the model file exists at the URL.")
+                st.info(f"URL: {MODEL_URL}")
                 return None
     
     # Load the model
@@ -254,3 +245,4 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True
 )
+
