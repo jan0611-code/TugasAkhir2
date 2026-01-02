@@ -21,7 +21,7 @@ st.write("Upload an image or use the camera, then classify the NLC phase.")
 # =====================================================
 # MODEL CONFIG
 # =====================================================
-MODEL_URL = "https://github.com/jan0611-code/TugasAkhir2/releases/download/v1.0/vgg16_trained_model.h5"
+MODEL_URL = "https://drive.google.com/file/d/1MH47HkGlOct_h458BgPBW2HzlTtZnW_3/view?usp=drive_link"
 MODEL_PATH = "model.h5"
 LABELS_PATH = "labels.txt"
 IMG_SIZE = 224
@@ -232,3 +232,4 @@ with st.expander("🔧 Debug Info"):
     st.write(f"- Labels: {class_names}")
     st.write(f"- Python version: 3.10.19")
     st.write(f"- TensorFlow version: {tf.__version__}")
+
