@@ -1,90 +1,132 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
   <title>Phase Classification</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
+
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
+      background: #f5f5f5;
+    }
+
+    img {
+      max-width: 300px;
+      margin-top: 20px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px 18px;
+      margin-top: 15px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .results {
+      margin-top: 20px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+  </style>
 </head>
 
-<body style="text-align:center;font-family:Arial">
+<body>
 
-<h2>Phase Classification</h2>
+  <h2>Phase Classification</h2>
 
-<input type="file" id="upload" accept="image/*" capture="environment"><br><br>
-<img id="preview" width="300"><br><br>
+  <!-- Upload / Camera -->
+  <input type="file" id="imageUpload" accept="image/*" capture="environment" />
 
-<button onclick="classify()">Begin Classify</button>
-<p id="result"></p>
+  <br />
+  <img id="preview" crossorigin="anonymous" />
 
-<script>
-const MODEL_URL =
-  "https://github.com/USERNAME/REPO/releases/download/v2.0/model.json";
+  <br />
+  <button onclick="classifyImage()">Begin Classify</button>
 
-const CLASS_NAMES = ["WD", "FWD", "GP"];
-let model;
-const img = document.getElementById("preview");
+  <div class="results" id="results"></div>
 
-async function loadModel() {
-  model = await tf.loadLayersModel(MODEL_URL);
-  document.getElementById("result").innerText = "Model loaded ✅";
-}
-loadModel();
+  <script>
+    // 🔴 IMPORTANT: CHANGE THIS TO YOUR REAL URL
+    const MODEL_URL =
+      "https://raw.githubusercontent.com/jan0611-code/TugasAkhir2/main/tfjs_model/model.json";
 
-// image preview
-document.getElementById("upload").addEventListener("change", e => {
-  const r = new FileReader();
-  r.onload = () => img.src = r.result;
-  r.readAsDataURL(e.target.files[0]);
-});
+    // ⚠️ MUST MATCH TRAINING ORDER
+    const CLASS_NAMES = ["WD", "FWD", "GP"];
 
-// --- SIMPLE GAUSSIAN BLUR (bilateral approx) ---
-function gaussianBlur(x) {
-  const kernel = tf.tensor4d([
-    1,2,1,
-    2,4,2,
-    1,2,1
-  ], [3,3,1,1]).div(16);
-  return tf.conv2d(x, kernel, 1, "same");
-}
+    let model;
+    let imageElement = document.getElementById("preview");
+    let imageReady = false;
 
-// --- ADAPTIVE THRESHOLD (mean-based) ---
-function adaptiveThreshold(x) {
-  const mean = tf.mean(x);
-  return x.greater(mean).toFloat();
-}
+    // Load model
+    async function loadModel() {
+      document.getElementById("results").innerText = "Loading model...";
+      model = await tf.loadLayersModel(MODEL_URL);
+      console.log("MODEL LOADED");
+      document.getElementById("results").innerText = "Model loaded ✅";
+    }
+    loadModel();
 
-async function classify() {
-  if (!model || !img.src) return alert("Model or image not ready");
+    // Handle image upload
+    document.getElementById("imageUpload").addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
 
-  let x = tf.browser.fromPixels(img)
-    .resizeNearestNeighbor([224,224])
-    .toFloat()
-    .div(255)
-    .expandDims();
+      imageReady = false;
 
-  // 1️⃣ Grayscale
-  x = tf.image.rgbToGrayscale(x);
+      const reader = new FileReader();
+      reader.onload = () => {
+        imageElement.onload = () => {
+          imageReady = true;
+        };
+        imageElement.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
 
-  // 2️⃣ Bilateral-like smoothing
-  x = gaussianBlur(x);
+    async function classifyImage() {
+      if (!model) {
+        alert("Model not loaded yet");
+        return;
+      }
 
-  // 3️⃣ Adaptive threshold
-  x = adaptiveThreshold(x);
+      if (!imageReady) {
+        alert("Image still loading, please wait");
+        return;
+      }
 
-  // 4️⃣ Back to RGB for VGG16
-  x = tf.image.grayscaleToRGB(x);
+      // Preprocess (MATCH TRAINING INPUT)
+      const tensor = tf.browser
+        .fromPixels(imageElement)
+        .resizeNearestNeighbor([224, 224])
+        .toFloat()
+        .div(255.0)
+        .expandDims(0);
 
-  const pred = model.predict(x);
-  const data = await pred.data();
+      const predictions = model.predict(tensor);
+      const data = await predictions.data();
 
-  let out = "<b>Prediction</b><br>";
-  data.forEach((v,i)=>{
-    out += `${CLASS_NAMES[i]}: ${(v*100).toFixed(2)}%<br>`;
-  });
-  document.getElementById("result").innerHTML = out;
+      let output = "<h3>Prediction Result</h3>";
+      let maxIndex = data.indexOf(Math.max(...data));
 
-  tf.dispose([x,pred]);
-}
-</script>
+      CLASS_NAMES.forEach((name, i) => {
+        output += `${name}: ${(data[i] * 100).toFixed(2)}%<br/>`;
+      });
+
+      output += `<br/><b>Predicted Phase: ${CLASS_NAMES[maxIndex]}</b>`;
+
+      document.getElementById("results").innerHTML = output;
+
+      tf.dispose(tensor);
+      tf.dispose(predictions);
+    }
+  </script>
 
 </body>
 </html>
