@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Phase Classification</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0"></script>
+</head>
+
+<body style="text-align:center;font-family:Arial">
+
+<h2>Phase Classification</h2>
+
+<input type="file" id="upload" accept="image/*" capture="environment"><br><br>
+<img id="preview" width="300"><br><br>
+
+<button onclick="classify()">Begin Classify</button>
+<p id="result"></p>
+
+<script>
+const MODEL_URL =
+  "https://github.com/USERNAME/REPO/releases/download/v2.0/model.json";
+
+const CLASS_NAMES = ["WD", "FWD", "GP"];
+let model;
+const img = document.getElementById("preview");
+
+async function loadModel() {
+  model = await tf.loadLayersModel(MODEL_URL);
+  document.getElementById("result").innerText = "Model loaded ✅";
+}
+loadModel();
+
+// image preview
+document.getElementById("upload").addEventListener("change", e => {
+  const r = new FileReader();
+  r.onload = () => img.src = r.result;
+  r.readAsDataURL(e.target.files[0]);
+});
+
+// --- SIMPLE GAUSSIAN BLUR (bilateral approx) ---
+function gaussianBlur(x) {
+  const kernel = tf.tensor4d([
+    1,2,1,
+    2,4,2,
+    1,2,1
+  ], [3,3,1,1]).div(16);
+  return tf.conv2d(x, kernel, 1, "same");
+}
+
+// --- ADAPTIVE THRESHOLD (mean-based) ---
+function adaptiveThreshold(x) {
+  const mean = tf.mean(x);
+  return x.greater(mean).toFloat();
+}
+
+async function classify() {
+  if (!model || !img.src) return alert("Model or image not ready");
+
+  let x = tf.browser.fromPixels(img)
+    .resizeNearestNeighbor([224,224])
+    .toFloat()
+    .div(255)
+    .expandDims();
+
+  // 1️⃣ Grayscale
+  x = tf.image.rgbToGrayscale(x);
+
+  // 2️⃣ Bilateral-like smoothing
+  x = gaussianBlur(x);
+
+  // 3️⃣ Adaptive threshold
+  x = adaptiveThreshold(x);
+
+  // 4️⃣ Back to RGB for VGG16
+  x = tf.image.grayscaleToRGB(x);
+
+  const pred = model.predict(x);
+  const data = await pred.data();
+
+  let out = "<b>Prediction</b><br>";
+  data.forEach((v,i)=>{
+    out += `${CLASS_NAMES[i]}: ${(v*100).toFixed(2)}%<br>`;
+  });
+  document.getElementById("result").innerHTML = out;
+
+  tf.dispose([x,pred]);
+}
+</script>
+
+</body>
+</html>
